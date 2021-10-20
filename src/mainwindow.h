@@ -2,6 +2,8 @@
 
 #include <QMainWindow>
 
+#include "nrsc.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -14,6 +16,10 @@ public:
     MainWindow(QWidget *parent = nullptr);
 
 private:
-    Ui::MainWindow *ui;
+    void play();
 
+    Ui::MainWindow *ui;
+    NRSC5 *radio;
+    bool playing = false;
+    double freq;
 };
