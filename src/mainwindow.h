@@ -1,8 +1,9 @@
 #pragma once
 
 #include <QMainWindow>
-
-#include "nrsc.h"
+extern "C" {
+#include <nrsc5.h>
+}
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -19,7 +20,7 @@ private:
     void play();
 
     Ui::MainWindow *ui;
-    NRSC5 *radio;
+    nrsc5_t *radio = NULL;
     bool playing = false;
     double freq;
 };

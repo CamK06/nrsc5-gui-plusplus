@@ -2,16 +2,17 @@
 #include <QMessageBox>
 #include <QObject>
 #include <spdlog/spdlog.h>
+extern "C" {
+#include <nrsc5.h>
+}
 
 #include "mainwindow.h"
-#include "nrsc.h"
 #include "version.h"
 #include "./ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , radio(new NRSC5)
 { 
     spdlog::info(PROGRAM " " VERSION);
     ui->setupUi(this);
@@ -43,10 +44,13 @@ void MainWindow::play()
         spdlog::info("Frequency (Hz): {}", freq);
 
         // Radio setup
-        if(radio->init(-1) != 0) {
+        if(nrsc5_open(&radio, 0) != 0) { // TODO: Don't just assume device 0 (this will be a GUI option later)
+            spdlog::error("Failed to open SDR!");
             QMessageBox::warning(this, "Error", "Failed to open SDR! Exiting...", QMessageBox::Ok);
             exit(-1);
         }
+        nrsc5_set_bias_tee(radio, true);
+        nrsc5_start(radio);
 
         // Adjust the UI
         ui->frequencyStr->setDisabled(true);
@@ -57,7 +61,9 @@ void MainWindow::play()
         spdlog::info("Stopping...");
 
         // Stop the radio
-        radio->stop();
+        nrsc5_stop(radio);
+        nrsc5_set_bias_tee(radio, false);
+        nrsc5_close(radio);
 
         // Adjust the UI
         ui->frequencyStr->setDisabled(false);
