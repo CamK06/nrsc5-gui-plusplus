@@ -49,7 +49,9 @@ void MainWindow::play()
             QMessageBox::warning(this, "Error", "Failed to open SDR! Exiting...", QMessageBox::Ok);
             exit(-1);
         }
+        nrsc5_set_frequency(radio, freq);
         nrsc5_set_bias_tee(radio, true);
+        nrsc5_set_callback(radio, radioCallback, this);
         nrsc5_start(radio);
 
         // Adjust the UI
@@ -70,4 +72,39 @@ void MainWindow::play()
         ui->playButton->setText("Play");
     }
     playing = !playing;
+}
+
+void MainWindow::setTrack(const char* track, const char* artist)
+{
+    if(artist != nullptr)
+        ui->trackLab->setText(QString("%1 by %2").arg(track, artist));
+    else
+        ui->trackLab->setText(track);
+}
+
+void MainWindow::setStation(const char* name, const char* slogan)
+{
+    if(slogan != nullptr)
+        ui->callsignLab->setText(QString("%1 - %2").arg(name, slogan));
+    else
+        ui->callsignLab->setText(name);
+}
+
+void MainWindow::radioCallback(const nrsc5_event_t *evt, void *opaque)
+{
+    MainWindow* mainWindow = (MainWindow*)opaque;
+    switch(evt->event) {
+
+        case NRSC5_EVENT_ID3:
+            if(evt->id3.program == mainWindow->currentProgram)
+                mainWindow->setTrack(evt->id3.title, evt->id3.artist);
+            break;
+
+        case NRSC5_EVENT_SIS:
+            mainWindow->setStation(evt->sis.name, evt->sis.slogan);
+            break;
+
+        default:
+            break;
+    }
 }

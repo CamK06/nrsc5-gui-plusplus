@@ -15,9 +15,14 @@ class MainWindow : public QMainWindow
 
 public:
     MainWindow(QWidget *parent = nullptr);
+    void setTrack(const char* track, const char* artist);
+    void setStation(const char* name, const char* slogan);
+
+    int currentProgram = 0;
 
 private:
     void play();
+    static void radioCallback(const nrsc5_event_t *evt, void *opaque);
 
     Ui::MainWindow *ui;
     nrsc5_t *radio = NULL;
