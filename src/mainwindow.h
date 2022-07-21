@@ -23,10 +23,11 @@ class MainWindow : public QMainWindow
 
 public:
     MainWindow(QWidget *parent = nullptr);
-    void setTrack(const char *track, const char *artist);
+    void setTrack(const char *track, const char *artist, const char *album, const char *genre);
     void setStation(const char *name, const char *slogan);
     void setPicture(int service, const uint8_t* data, unsigned int size);
     void setLogo(int service);
+    void updateChannelButtons();
     void audio_worker();
 
     // Radio

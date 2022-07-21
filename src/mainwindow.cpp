@@ -27,12 +27,16 @@ MainWindow::MainWindow(QWidget *parent)
     ui->statusBar->addWidget(&statusBarLabel, 1);
 
     // Set up the image display
-    ui->imageDisplay->setScaledContents(true);
-    ui->imageDisplay->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+    //ui->albumArtImage->setScaledContents(true);
+    ui->albumArtImage->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
 
     // Signal handling
     connect(ui->playButton, &QPushButton::pressed, this, &MainWindow::play);
-    connect(ui->channelSelection, SIGNAL(valueChanged(int)), this, SLOT(setChannel(int)));
+    connect(ui->frequencySelect, SIGNAL(valueChanged(int)), this, SLOT(setChannel(int)));
+    connect(ui->hd1Button, &QPushButton::pressed, this, [=]() {setChannel(1);});
+    connect(ui->hd2Button, &QPushButton::pressed, this, [=]() {setChannel(2);});
+    connect(ui->hd3Button, &QPushButton::pressed, this, [=]() {setChannel(3);});
+    connect(ui->hd4Button, &QPushButton::pressed, this, [=]() {setChannel(4);});
 
     spdlog::info("Initialized main window");
 }
@@ -42,6 +46,8 @@ void MainWindow::setChannel(int channel)
     // Update the logo
     setLogo(channel-1);
     currentProgram = channel-1;
+    updateChannelButtons();
+
     // TODO: Make this reset audio
 }
 
@@ -53,7 +59,7 @@ void MainWindow::play()
         playing = true;
 
         // Parse the frequency
-        freq = std::atof(ui->frequencyStr->text().toStdString().c_str());
+        freq = ui->frequencySelect->value();
         if(freq == 0) { // Check if the string parsed correctly
             QMessageBox::warning(this, "Warning", "The entered frequency is invalid!", QMessageBox::Ok);
             return;
@@ -78,7 +84,7 @@ void MainWindow::play()
         nrsc5_start(radio);
 
         // Adjust the UI
-        ui->frequencyStr->setDisabled(true);
+        ui->frequencySelect->setDisabled(true);
         ui->playButton->setText("Stop");
 
         // Initialize portaudio
@@ -107,32 +113,36 @@ void MainWindow::play()
         nrsc5_close(radio);
 
         // Adjust the UI
-        ui->frequencyStr->setDisabled(false);
+        ui->frequencySelect->setDisabled(false);
         ui->playButton->setText("Play");
-        ui->imageDisplay->setPixmap(QPixmap());
+        ui->albumArtImage->setPixmap(QPixmap());
 
         // General cleanup
         numAudioServices = 1;
         audio_packets = 0;
         audio_kbps = 0;
         errorRate = 0;
-        ui->channelSelection->setMaximum(1);
+        ui->hd1Button->setEnabled(false);
+        ui->hd2Button->setEnabled(false);
+        ui->hd3Button->setEnabled(false);
+        ui->hd4Button->setEnabled(false);
         statusBarLabel.setText(QString("BER: %1 | Kbps: %2").arg(errorRate).arg(audio_kbps));
-        ui->trackLab->setText("");
-        ui->callsignLab->setText("");
+        ui->titleText->setText("");
+        ui->artistText->setText("");
+        ui->albumText->setText("");
+        ui->genreText->setText("");
     }
 }
 
 void MainWindow::radioCallback(const nrsc5_event_t *evt, void *opaque)
 {
     MainWindow* mainWindow = (MainWindow*)opaque;
-    mainWindow->currentProgram = mainWindow->ui->channelSelection->value()-1;
     switch(evt->event) {
 
         // ID3 metadata
         case NRSC5_EVENT_ID3:
             if(evt->id3.program == mainWindow->currentProgram)
-                mainWindow->setTrack(evt->id3.title, evt->id3.artist);
+                mainWindow->setTrack(evt->id3.title, evt->id3.artist, evt->id3.album, evt->id3.genre);
             break;
 
         // Station information
@@ -145,7 +155,18 @@ void MainWindow::radioCallback(const nrsc5_event_t *evt, void *opaque)
             nrsc5_sis_asd_t *audio_service;
             for (audio_service = evt->sis.audio_services; audio_service != NULL; audio_service = audio_service->next)
                 mainWindow->numAudioServices++;
-            mainWindow->ui->channelSelection->setMaximum(mainWindow->numAudioServices);
+
+            // Enable the HD buttons according to the numAudioServices value
+            // This is probably messy but meh... it works..?
+            mainWindow->updateChannelButtons();
+            // if(mainWindow->numAudioServices < 2)
+            //     mainWindow->ui->hd1Button->setEnabled(true);
+            // if(mainWindow->numAudioServices < 3)
+            //     mainWindow->ui->hd2Button->setEnabled(true);
+            // if(mainWindow->numAudioServices < 4)
+            //     mainWindow->ui->hd3Button->setEnabled(true);
+            // else
+            //     mainWindow->ui->hd4Button->setEnabled(true);
             break;
 
         case NRSC5_EVENT_SIG:
@@ -236,20 +257,31 @@ void MainWindow::radioCallback(const nrsc5_event_t *evt, void *opaque)
     mainWindow->statusBarLabel.setText(QString("BER: %1 | Kbps: %2").arg(mainWindow->errorRate).arg(mainWindow->audio_kbps));
 }
 
-void MainWindow::setTrack(const char* track, const char* artist)
+void MainWindow::setTrack(const char* track, const char* artist, const char* album, const char* genre)
 {
+    ui->titleText->setText(track);
+    // YANDEV GO BRRRRRRR
     if(artist != nullptr)
-        ui->trackLab->setText(QString("%1 by %2").arg(track, artist));
+        ui->artistText->setText(artist);
     else
-        ui->trackLab->setText(track);
+        ui->artistText->setText("N/A");
+    if(album != nullptr)
+        ui->albumText->setText(album);
+    else
+        ui->albumText->setText("N/A");
+    if(genre != nullptr)
+        ui->genreText->setText(genre);
+    else
+        ui->genreText->setText("N/A");
 }
 
 void MainWindow::setStation(const char* name, const char* slogan)
 {
-    if(slogan != nullptr)
-        ui->callsignLab->setText(QString("%1 - %2").arg(name, slogan));
-    else
-        ui->callsignLab->setText(name);
+    // TODO: Set station info
+    // if(slogan != nullptr)
+    //     ui->callsignLab->setText(QString("%1 - %2").arg(name, slogan));
+    // else
+    //     ui->callsignLab->setText(name);
 
     stationName = name;
 }
@@ -264,7 +296,7 @@ void MainWindow::setLogo(int service)
 
     // Set the logo
     QPixmap logo(logoPath.c_str());
-    ui->imageDisplay->setPixmap(logo);
+    ui->albumArtImage->setPixmap(logo);
 }
 
 void MainWindow::setPicture(int service, const uint8_t* data, unsigned int size)
@@ -273,6 +305,27 @@ void MainWindow::setPicture(int service, const uint8_t* data, unsigned int size)
         return;
     
     // TODO: Implement
+}
+
+void MainWindow::updateChannelButtons()
+{
+    // Disable all channel buttons
+    ui->hd1Button->setEnabled(false);
+    ui->hd2Button->setEnabled(false);
+    ui->hd3Button->setEnabled(false);
+    ui->hd4Button->setEnabled(false);
+
+    // This is probably a bad way to do this but meh idgaf
+    for(int i = 0; i < 4; i++) {
+        if(i == 0 && currentProgram != i && i < numAudioServices)
+            ui->hd1Button->setEnabled(true);
+        else if(i == 1 && currentProgram != i && i < numAudioServices)
+            ui->hd2Button->setEnabled(true);
+        else if(i == 2 && currentProgram != i && i < numAudioServices)
+            ui->hd3Button->setEnabled(true);
+        else if(i == 3 && currentProgram != i && i < numAudioServices)
+            ui->hd4Button->setEnabled(true);
+    }
 }
 
 void MainWindow::audio_worker()
