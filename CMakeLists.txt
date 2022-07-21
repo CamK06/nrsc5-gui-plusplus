@@ -25,4 +25,4 @@ endif()
 add_definitions("-DGIT_COMMIT=\"${GIT_COMMIT}\"")
 
 add_executable(nrsc5-gui ${SOURCES})
-target_link_libraries(nrsc5-gui Qt5::Widgets nrsc5 spdlog)
+target_link_libraries(nrsc5-gui Qt5::Widgets nrsc5 spdlog portaudio)
